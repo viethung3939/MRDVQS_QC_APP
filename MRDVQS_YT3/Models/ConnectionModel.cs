@@ -1,0 +1,53 @@
+﻿using Microsoft.Win32;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace MRDVQS_YT3.Models
+{
+    static public class ConnectionModel
+    {
+        static public string webAddress = System.Configuration.ConfigurationManager.AppSettings["webAddress"];
+        static public string templateAddress = webAddress + "template/nameplate1.lbx"; //"D:/VietHung/IT/VQS/VQS_SNIC/Program/VQS_SNIC/VQS_SNIC/template/nameplate1.lbx";
+
+        static public bool checkInstalled(string c_name)
+        {
+            string displayName;
+
+            string registryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+            RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKey);
+            if (key != null)
+            {
+                foreach (RegistryKey subkey in key.GetSubKeyNames().Select(keyName => key.OpenSubKey(keyName)))
+                {
+                    displayName = subkey.GetValue("DisplayName") as string;
+                    if (displayName != null && displayName.Contains(c_name))
+                    {
+                        return true;
+                    }
+                }
+                key.Close();
+            }
+
+            registryKey = @"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall";
+            key = Registry.LocalMachine.OpenSubKey(registryKey);
+            if (key != null)
+            {
+                foreach (RegistryKey subkey in key.GetSubKeyNames().Select(keyName => key.OpenSubKey(keyName)))
+                {
+                    displayName = subkey.GetValue("DisplayName") as string;
+                    if (displayName != null && displayName.Contains(c_name))
+                    {
+                        return true;
+                    }
+                }
+                key.Close();
+            }
+            return false;
+        }
+    }
+}
