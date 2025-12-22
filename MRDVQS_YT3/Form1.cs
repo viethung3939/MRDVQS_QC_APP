@@ -103,6 +103,59 @@ namespace MRDVQS_YT3
                         chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
                     }
                 }
+                else if (type == "PRINT_TEST")
+                {
+                    string qrCode = msg["value"].ToString();
+                    bool isOnline = fnCheckPrinter();
+                    if (string.IsNullOrEmpty(qrCode))
+                    {
+                        JObject result = new JObject
+                        {
+                            ["action"] = "PRINT_TEST",
+                            ["ErrCode"] = 0,
+                            ["ErrMsg"] = "Invalid QR Code data.",
+                            ["ErrBack"] = qrCode
+                        };
+                        chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                    }
+                    else if (!isOnline)
+                    {
+                        JObject result = new JObject
+                        {
+                            ["action"] = "PRINT_TEST",
+                            ["ErrCode"] = 0,
+                            ["ErrMsg"] = "Printer is offline.",
+                            ["ErrBack"] = qrCode
+                        };
+                        chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                    }
+                    else
+                    {
+                        returnMsg = fnPrintQR(qrCode);
+                        fnWebMessageReponse(returnMsg);
+                    }
+                }
+                else if (type== "CHECK_PRINTER")
+                {
+                    bool isOnline = fnCheckPrinter();
+                    JObject result = new JObject
+                    {
+                        ["action"] = "CHECK_PRINTER",
+                        ["ErrCode"] = isOnline ? 1 : 0,
+                        ["ErrMsg"] = isOnline ? "Printer is online." : "Printer is offline."
+                    };
+                    chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                }
+                else
+                {
+                    JObject result = new JObject
+                    {
+                        ["action"] = "UNKNOWN_ACTION",
+                        ["ErrCode"] = 0,
+                        ["ErrMsg"] = "Unknown action type: " + type
+                    };
+                    chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                }
             }
             catch (Exception ex)
             {
@@ -241,6 +294,17 @@ namespace MRDVQS_YT3
             }
             return msg;
             //chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({msg.ToString(Newtonsoft.Json.Formatting.None)});");
+        }
+
+        public bool fnCheckPrinter()
+        {
+            bpac.PrinterClass printer = new bpac.PrinterClass();
+            object[] printers = (object[])printer.GetInstalledPrinters();
+
+            string printerName = (string)printers[0];
+
+            bool isOnline = printer.IsPrinterOnline(printerName);
+            return isOnline;
         }
 
         public void fnWebMessageReponse(JObject msg)
