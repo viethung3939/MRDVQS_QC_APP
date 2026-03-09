@@ -13,6 +13,7 @@ namespace MRDVQS_YT3.Models
     {
         static public string webAddress = System.Configuration.ConfigurationManager.AppSettings["webAddress"];
         static public string templateAddress = webAddress + "template/nameplate1.lbx"; //"http://192.168.11.99/MRDVQS_QC/template/nameplate1.lbx";
+        static public string templateZabraAddress = webAddress + "template/yt3-donggoi.prn"; //"http://192.168.11.99/MRDVQS_QC/template/nameplate1.lbx";
 
         static public bool checkInstalled(string c_name)
         {

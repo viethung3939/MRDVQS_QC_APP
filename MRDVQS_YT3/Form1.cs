@@ -11,6 +11,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Management;
+using System.Printing;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -146,6 +148,78 @@ namespace MRDVQS_YT3
                     };
                     chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
                 }
+                else if (type == "PRINT_PACKAGE_QRCODE")
+                {
+                    JObject dataCode = (JObject)msg["value"];
+                    var qrCode = dataCode["qrCode"].ToString();
+                    var itemCode = dataCode["itemCode"].ToString();
+                    var empCode = dataCode["empCode"].ToString();
+                    var printDate = dataCode["printDate"].ToString();
+                    if (!string.IsNullOrEmpty(qrCode))
+                    {
+                        returnMsg = fnPrintPackageQR(qrCode, itemCode, empCode, printDate);
+                        fnWebMessageReponse(returnMsg);
+                    }
+                    else
+                    {
+                        JObject result = new JObject
+                        {
+                            ["action"] = "PRINT_PACKAGE_QRCODE",
+                            ["ErrCode"] = 0,
+                            ["ErrMsg"] = "Invalid QR Code data.",
+                            ["ErrBack"] = qrCode
+                        };
+                        chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                    }
+                    
+                }
+                else if (type == "PRINT_PACKAGE_TEST")
+                {
+                    JObject dataCode = (JObject)msg["value"];
+                    var qrCode = dataCode["qrCode"].ToString();
+                    var itemCode = dataCode["itemCode"].ToString();
+                    var empCode = dataCode["empCode"].ToString();
+                    var printDate = dataCode["printDate"].ToString();
+                    bool isOnline = fnCheckPackagePrinter();
+                    if (string.IsNullOrEmpty(qrCode))
+                    {
+                        JObject result = new JObject
+                        {
+                            ["action"] = "PRINT_PACKAGE_TEST",
+                            ["ErrCode"] = 0,
+                            ["ErrMsg"] = "Invalid QR Code data.",
+                            ["ErrBack"] = qrCode
+                        };
+                        chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                    }
+                    else if (!isOnline)
+                    {
+                        JObject result = new JObject
+                        {
+                            ["action"] = "PRINT_PACKAGE_TEST",
+                            ["ErrCode"] = 0,
+                            ["ErrMsg"] = "Printer is offline.",
+                            ["ErrBack"] = qrCode
+                        };
+                        chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                    }
+                    else
+                    {
+                        returnMsg = fnPrintPackageQR(qrCode, itemCode, empCode, printDate);
+                        fnWebMessageReponse(returnMsg);
+                    }
+                }
+                else if (type == "CHECK_PACKAGE_PRINTER")
+                {
+                    bool isOnline = fnCheckPackagePrinter();
+                    JObject result = new JObject
+                    {
+                        ["action"] = "CHECK_PACKAGE_PRINTER",
+                        ["ErrCode"] = isOnline ? 1 : 0,
+                        ["ErrMsg"] = isOnline ? "Printer is online." : "Printer is offline."
+                    };
+                    chromiumWebBrowser.ExecuteScriptAsync($"window.onWinFormMessage({result.ToString(Newtonsoft.Json.Formatting.None)});");
+                }
                 else
                 {
                     JObject result = new JObject
@@ -251,7 +325,7 @@ namespace MRDVQS_YT3
 
         public JObject fnPrintQR(string qrCode)
         {
-            JObject msg = new JObject(); ;
+            JObject msg = new JObject();
             try
             {
                 bpac.DocumentClass doc = new bpac.DocumentClass();
@@ -305,6 +379,61 @@ namespace MRDVQS_YT3
 
             bool isOnline = printer.IsPrinterOnline(printerName);
             return isOnline;
+        }
+
+        public JObject fnPrintPackageQR(string qrCode, string itemCode, string empCode, string printDate)
+        {
+            JObject msg = new JObject();
+            try
+            {
+                LocalPrintServer server = new LocalPrintServer();
+                PrintQueueCollection queues = server.GetPrintQueues();
+                PrintQueue zebra = queues.FirstOrDefault(p => p.Name.Contains("ZDesigner"));
+
+                DateTime dt = Convert.ToDateTime(printDate);
+                string formatDate = dt.ToString("dd/MM/yyyy");
+
+                string template = File.ReadAllText(ConnectionModel.templateZabraAddress);
+                template = template.Replace("ITEM99999", itemCode);
+                template = template.Replace("DATE99999", formatDate);
+                template = template.Replace("01", empCode);
+                template = template.Replace("{HELLO123}", qrCode);
+
+                JObject result = RawPrinter.fnSendStringToPrinter(zebra.Name, template);
+
+                msg = new JObject
+                {
+                    ["action"] = "PRINT_PACKAGE_QRCODE",
+                    ["ErrCode"] = result?["ErrCode"] ?? "0",
+                    ["ErrMsg"] = result?["ErrMsg"] ?? "Printer error",
+                    ["ErrBack"] = qrCode
+                };
+            }
+            catch (Exception ex)
+            {
+                msg = new JObject
+                {
+                    ["action"] = "PRINT_PACKAGE_QRCODE",
+                    ["ErrCode"] = 0,
+                    ["ErrMsg"] = "Error in fnPrintPackageQR: " + ex.Message,
+                    ["ErrBack"] = qrCode
+                };
+            }
+            return msg;
+        }
+
+        public static bool fnCheckPackagePrinter()
+        {
+            LocalPrintServer server = new LocalPrintServer();
+            PrintQueueCollection queues = server.GetPrintQueues();
+            PrintQueue zebra = queues.FirstOrDefault(p => p.Name.Contains("ZDesigner"));
+
+            zebra.Refresh();
+
+            if (zebra.IsOffline || zebra.IsNotAvailable)
+                return false;
+
+            return true;
         }
 
         public void fnWebMessageReponse(JObject msg)
