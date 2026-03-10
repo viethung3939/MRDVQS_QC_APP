@@ -12,11 +12,12 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Management;
+using System.Net.Http;
 using System.Printing;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Management;
 using System.Xml;
 
 namespace MRDVQS_YT3
@@ -28,7 +29,9 @@ namespace MRDVQS_YT3
         {
             InitializeComponent();
             ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PrinterDriver WHERE Name = 'Brother PT-P950NW,3,Windows x64'");
+            ManagementObjectSearcher searcherZebra = new ManagementObjectSearcher($"SELECT * FROM Win32_PrinterDriver WHERE Name LIKE '%{"ZDesigner ZD421"}%'");
             var drivers = searcher.Get().Cast<ManagementObject>();
+            var driversZebra = searcherZebra.Get().Cast<ManagementObject>();
             if (drivers.Count() == 0)
             {
                 var process = Process.Start(@"Redist\bsp15bw1104aus.exe");
@@ -37,6 +40,11 @@ namespace MRDVQS_YT3
             if (!ConnectionModel.checkInstalled("b-PAC3 Client Component (64bit)"))
             {
                 var process = Process.Start(@"Redist\bPAC3CCISetup_64.msi");
+                process.WaitForExit();
+            }
+            if (driversZebra.Count() == 0)
+            {
+                var process = Process.Start(@"Redist\zddriver.exe");
                 process.WaitForExit();
             }
         }
@@ -257,7 +265,8 @@ namespace MRDVQS_YT3
                     {
                         ["lang"] = "vn",
                         ["device"] = "",
-                        ["product"] = ""
+                        ["product"] = "",
+                        ["package_product"] = "",
                     };
 
                     File.WriteAllText(
@@ -393,7 +402,12 @@ namespace MRDVQS_YT3
                 DateTime dt = Convert.ToDateTime(printDate);
                 string formatDate = dt.ToString("dd/MM/yyyy");
 
-                string template = File.ReadAllText(ConnectionModel.templateZabraAddress);
+                string template;
+
+                using (HttpClient client = new HttpClient())
+                {
+                    template = client.GetStringAsync(ConnectionModel.templateZabraAddress).Result;
+                }
                 template = template.Replace("ITEM99999", itemCode);
                 template = template.Replace("DATE99999", formatDate);
                 template = template.Replace("01", empCode);
