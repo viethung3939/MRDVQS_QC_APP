@@ -410,7 +410,7 @@ namespace MRDVQS_YT3
                 }
                 template = template.Replace("ITEM99999", itemCode);
                 template = template.Replace("DATE99999", formatDate);
-                template = template.Replace("01", empCode);
+                template = template.Replace("0001", empCode);
                 template = template.Replace("{HELLO123}", qrCode);
 
                 JObject result = RawPrinter.fnSendStringToPrinter(zebra.Name, template);
